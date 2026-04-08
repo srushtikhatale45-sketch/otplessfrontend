@@ -15,8 +15,32 @@ const api = axios.create({
   headers: {
     'Content-Type': 'application/json'
   },
-  timeout: 15000
+  timeout: 15000,
+  withCredentials: true // Add this for CORS credentials
 });
+
+// Add request interceptor for debugging
+api.interceptors.request.use(
+  (config) => {
+    console.log(`📤 ${config.method.toUpperCase()} ${config.baseURL}${config.url}`);
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
+
+// Add response interceptor for debugging
+api.interceptors.response.use(
+  (response) => {
+    console.log(`📥 Response from ${response.config.url}:`, response.status);
+    return response;
+  },
+  (error) => {
+    console.error(`❌ Error from ${error.config?.url}:`, error.message);
+    return Promise.reject(error);
+  }
+);
 
 // Helper to update user data
 const updateUserData = (userData) => {
