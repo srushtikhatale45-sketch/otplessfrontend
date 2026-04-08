@@ -1,60 +1,68 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import PhoneInput from './components/PhoneInput';
 import OTPInput from './components/OTPInput';
+import Dashboard from './components/Dashboard';
 import Toast from './components/Toast';
 
-// Configure axios with correct base URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  timeout: 10000,
-  headers: {
-    'Content-Type': 'application/json',
-  }
-});
-
-// Add request interceptor for debugging
-api.interceptors.request.use(request => {
-  console.log('Starting Request:', request.method.toUpperCase(), request.baseURL + request.url);
-  return request;
-});
-
-api.interceptors.response.use(
-  response => {
-    console.log('Response:', response.status, response.config.url);
-    return response;
-  },
-  error => {
-    console.error('API Error:', error.response?.status, error.response?.data);
-    return Promise.reject(error);
-  }
-);
+// Use full backend URL
+const API_BASE_URL = 'http://localhost:5000/api';
+axios.defaults.withCredentials = true;
 
 const App = () => {
   const [step, setStep] = useState('phone');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [userName, setUserName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isResending, setIsResending] = useState(false);
   const [toast, setToast] = useState(null);
   const [showTestOTP, setShowTestOTP] = useState(false);
   const [testOTP, setTestOTP] = useState('');
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState(null);
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    checkAuthStatus();
+  }, []);
 
   const showToast = (message, type) => {
     setToast({ message, type });
   };
 
+  const checkAuthStatus = async () => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/auth/check`, {
+        withCredentials: true
+      });
+      if (response.data.authenticated) {
+        setIsAuthenticated(true);
+        setUser(response.data.user);
+        setStep('dashboard');
+      }
+    } catch (error) {
+      console.error('Auth check error:', error);
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
+
   const handleSendOTP = async (number) => {
     setIsLoading(true);
     try {
-      console.log('Sending OTP to:', `${API_BASE_URL}/api/otp/send-otp`);
+      console.log('Sending OTP to backend:', `${API_BASE_URL}/otp/send-otp`);
       console.log('With phone number:', number);
       
-      const response = await api.post('/api/otp/send-otp', {
+      const response = await axios.post(`${API_BASE_URL}/otp/send-otp`, {
         phoneNumber: number
+      }, {
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        withCredentials: true
       });
       
-      console.log('Response received:', response.data);
+      console.log('Response:', response.data);
       
       if (response.data.success) {
         setPhoneNumber(number);
@@ -77,7 +85,7 @@ const App = () => {
       if (error.code === 'ERR_NETWORK') {
         errorMessage += 'Cannot connect to server. Make sure backend is running on port 5000';
       } else if (error.response?.status === 404) {
-        errorMessage += 'API endpoint not found. Please check if backend is running correctly.';
+        errorMessage += 'API endpoint not found. Please check if backend routes are correct.';
       } else {
         errorMessage += error.response?.data?.message || error.message;
       }
@@ -91,19 +99,26 @@ const App = () => {
   const handleVerifyOTP = async (otpCode) => {
     setIsLoading(true);
     try {
-      const response = await api.post('/api/otp/verify-otp', {
+      const response = await axios.post(`${API_BASE_URL}/otp/verify-otp`, {
         phoneNumber: phoneNumber,
-        otpCode: otpCode
+        otpCode: otpCode,
+        name: userName || 'User'
+      }, {
+        withCredentials: true
       });
       
       if (response.data.verified) {
         showToast('✅ Phone number verified successfully!', 'success');
+        setIsAuthenticated(true);
+        setUser(response.data.user);
+        
         setTimeout(() => {
-          setStep('phone');
+          setStep('dashboard');
           setPhoneNumber('');
+          setUserName('');
           setTestOTP('');
           setShowTestOTP(false);
-        }, 2000);
+        }, 1000);
       } else {
         showToast(response.data.message || 'Invalid OTP. Please try again.', 'error');
       }
@@ -121,8 +136,10 @@ const App = () => {
   const handleResendOTP = async () => {
     setIsResending(true);
     try {
-      const response = await api.post('/api/otp/resend-otp', {
+      const response = await axios.post(`${API_BASE_URL}/otp/resend-otp`, {
         phoneNumber: phoneNumber
+      }, {
+        withCredentials: true
       });
       
       if (response.data.success) {
@@ -144,6 +161,36 @@ const App = () => {
       setIsResending(false);
     }
   };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${API_BASE_URL}/auth/logout`, {}, {
+        withCredentials: true
+      });
+      setIsAuthenticated(false);
+      setUser(null);
+      setStep('phone');
+      showToast('Logged out successfully', 'success');
+    } catch (error) {
+      console.error('Logout error:', error);
+      showToast('Failed to logout', 'error');
+    }
+  };
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (step === 'dashboard' && isAuthenticated) {
+    return <Dashboard user={user} onLogout={handleLogout} />;
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
@@ -186,10 +233,24 @@ const App = () => {
         </div>
 
         {step === 'phone' ? (
-          <PhoneInput 
-            onSubmit={handleSendOTP}
-            isLoading={isLoading}
-          />
+          <>
+            <div className="mb-4">
+              <label className="block text-gray-700 text-sm font-bold mb-2">
+                Name (Optional)
+              </label>
+              <input
+                type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                placeholder="Enter your name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <PhoneInput 
+              onSubmit={handleSendOTP}
+              isLoading={isLoading}
+            />
+          </>
         ) : (
           <OTPInput
             phoneNumber={phoneNumber}
