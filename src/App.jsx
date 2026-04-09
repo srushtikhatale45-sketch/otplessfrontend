@@ -207,7 +207,7 @@ const App = () => {
                 <strong>Development OTP:</strong> {testOTP}
               </p>
               <p className="text-xs text-yellow-600 mt-1">
-                Valid for 5 minutes
+                Valid for 5 minutes only
               </p>
             </div>
             <button
