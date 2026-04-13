@@ -66,27 +66,8 @@ const Dashboard = ({ user, onLogout }) => {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-lg p-6">
-            <h2 className="text-xl font-semibold text-gray-800 mb-4">Security</h2>
-            <div className="space-y-4">
-              <div className="bg-blue-50 rounded-lg p-4">
-                <p className="text-sm text-blue-800 mb-2">
-                  Your session is secured with JWT tokens stored in HTTP-only cookies.
-                </p>
-                <p className="text-xs text-blue-600">
-                  Access tokens expire in 15 minutes, refresh tokens in 7 days.
-                </p>
-              </div>
-              
-              <button
-                onClick={handleRefreshToken}
-                disabled={loading}
-                className="w-full bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Refreshing...' : 'Manually Refresh Token'}
-              </button>
-            </div>
-          </div>
+         
+        
         </div>
       </div>
     </div>
